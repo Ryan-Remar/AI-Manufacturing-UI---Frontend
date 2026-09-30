@@ -20,6 +20,16 @@
       <p id="data-status" role="status">
         Waiting for data. No input has been connected.
       </p>
+
+      <input
+        id="report-file"
+        class="sr-only"
+        type="file"
+        accept=".json,application/json"
+      >
+      <label class="report-load" for="report-file">
+        Load inspection report
+      </label>
     </header>
 
     <!-- PRODUCTION TOTALS -->
@@ -167,21 +177,21 @@
       </div>
     </div>
 
-    <!-- MONTHLY SUMMARY -->
+    <!-- INSPECTION SUMMARY -->
     <section aria-labelledby="monthly-heading">
-      <h2 id="monthly-heading">Monthly Summary</h2>
-      <h3 class="month-title">October Score</h3>
+      <h2 id="monthly-heading">Inspection Summary</h2>
+      <h3 class="month-title">Report metrics</h3>
 
       <div class="table-wrap">
         <table>
           <caption class="sr-only">
-            October production and quality summary
+            Inspection production and quality summary
           </caption>
 
           <thead>
             <tr>
-              <th scope="col">Month</th>
-              <th scope="col">Error Rate</th>
+              <th scope="col">Report</th>
+              <th scope="col">Model Error Rate</th>
               <th scope="col">Amount Produced</th>
               <th scope="col">Total Good</th>
               <th scope="col">Total Bad</th>
@@ -194,15 +204,15 @@
 
           <tbody>
             <tr>
-              <th scope="row">October</th>
-              <td id="month-error">—</td>
-              <td id="month-total">—</td>
-              <td id="month-good">—</td>
-              <td id="month-bad">—</td>
-              <td id="month-yield">—</td>
-              <td id="month-defect">—</td>
-              <td id="month-time">—</td>
-              <td id="month-quality">—</td>
+              <th scope="row">Casting inspection</th>
+              <td id="inspection-error">—</td>
+              <td id="inspection-total">—</td>
+              <td id="inspection-good">—</td>
+              <td id="inspection-bad">—</td>
+              <td id="inspection-yield">—</td>
+              <td id="inspection-defect">—</td>
+              <td id="inspection-time">—</td>
+              <td id="inspection-quality">—</td>
             </tr>
           </tbody>
         </table>

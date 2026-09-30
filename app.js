@@ -20,7 +20,7 @@
     runtimeSeconds: null,
     averageTimeSeconds: null,
     qualityScore: null,
-    october: null
+    inspection: null
   });
 
   let current = empty();
@@ -95,6 +95,436 @@
     return value;
   }
 
+  function requiredObject(value, name) {
+    const result = object(value, name);
+
+    if (!result) {
+      throw new TypeError(name + " is required");
+    }
+
+    return result;
+  }
+
+  function requiredFields(value, name, fields) {
+    fields.forEach(field => {
+      if (!Object.prototype.hasOwnProperty.call(value, field)) {
+        throw new TypeError(name + "." + field + " is required");
+      }
+    });
+  }
+
+  function requiredString(value, name) {
+    if (typeof value !== "string" || value.trim() === "") {
+      throw new TypeError(name + " must be a nonempty string");
+    }
+
+    return value;
+  }
+
+  function requiredDateTime(value, name) {
+    const result = requiredString(value, name);
+    const isoDateTime =
+      /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d+)?(Z|[+-]\d{2}:\d{2})$/;
+
+    if (!isoDateTime.test(result) || !Number.isFinite(Date.parse(result))) {
+      throw new TypeError(name + " must be an ISO 8601 date-time");
+    }
+
+    return result;
+  }
+
+  function requiredBoolean(value, name) {
+    if (typeof value !== "boolean") {
+      throw new TypeError(name + " must be a boolean");
+    }
+
+    return value;
+  }
+
+  function requiredNumber(value, name, max = Infinity, integer = false) {
+    if (value === null || value === undefined) {
+      throw new TypeError(name + " is required");
+    }
+
+    return optional(value, name, max, integer);
+  }
+
+  function requiredEnum(value, name, allowed) {
+    if (!allowed.includes(value)) {
+      throw new TypeError(
+        name + " must be one of: " + allowed.join(", ")
+      );
+    }
+
+    return value;
+  }
+
+  function validateInspectionReport(value) {
+    const report = requiredObject(value, "report");
+    if (report.schema !== "casting-inspection/1") {
+      throw new TypeError(
+        'report.schema must be "casting-inspection/1"'
+      );
+    }
+    requiredFields(report, "report", [
+      "schema",
+      "generated_at",
+      "source",
+      "summary",
+      "castings"
+    ]);
+
+    requiredDateTime(
+      report.generated_at,
+      "report.generated_at"
+    );
+
+    const source = requiredObject(report.source, "report.source");
+    requiredFields(source, "report.source", [
+      "stage_one",
+      "stage_two",
+      "split",
+      "scope",
+      "near_duplicate_below"
+    ]);
+
+    const stageOne = requiredObject(
+      source.stage_one,
+      "report.source.stage_one"
+    );
+    requiredFields(stageOne, "report.source.stage_one", [
+      "run",
+      "model",
+      "trained_at",
+      "augmented",
+      "training_images",
+      "accuracy_pct",
+      "epochs_run"
+    ]);
+    requiredString(stageOne.run, "report.source.stage_one.run");
+    requiredString(stageOne.model, "report.source.stage_one.model");
+    requiredDateTime(
+      stageOne.trained_at,
+      "report.source.stage_one.trained_at"
+    );
+
+    requiredBoolean(
+      stageOne.augmented,
+      "report.source.stage_one.augmented"
+    );
+    requiredNumber(
+      stageOne.training_images,
+      "report.source.stage_one.training_images",
+      Infinity,
+      true
+    );
+    requiredNumber(
+      stageOne.accuracy_pct,
+      "report.source.stage_one.accuracy_pct",
+      100
+    );
+    requiredNumber(
+      stageOne.epochs_run,
+      "report.source.stage_one.epochs_run",
+      Infinity,
+      true
+    );
+
+    const stageTwo = requiredObject(
+      source.stage_two,
+      "report.source.stage_two"
+    );
+    requiredFields(stageTwo, "report.source.stage_two", [
+      "cutoffs",
+      "pos_weight",
+      "labels_behind_cutoffs"
+    ]);
+    requiredString(stageTwo.cutoffs, "report.source.stage_two.cutoffs");
+    requiredBoolean(stageTwo.pos_weight, "report.source.stage_two.pos_weight");
+    requiredNumber(
+      stageTwo.labels_behind_cutoffs,
+      "report.source.stage_two.labels_behind_cutoffs",
+      Infinity,
+      true
+    );
+    requiredString(source.split, "report.source.split");
+    requiredString(source.scope, "report.source.scope");
+    requiredNumber(
+      source.near_duplicate_below,
+      "report.source.near_duplicate_below"
+    );
+
+    const summary = requiredObject(report.summary, "report.summary");
+    requiredFields(summary, "report.summary", [
+      "castings",
+      "verdict",
+      "label",
+      "accuracy",
+      "near_duplicates",
+      "defect_types"
+    ]);
+    const castingCount = requiredNumber(
+      summary.castings,
+      "report.summary.castings",
+      Infinity,
+      true
+    );
+    requiredNumber(
+      summary.near_duplicates,
+      "report.summary.near_duplicates",
+      Infinity,
+      true
+    );
+
+    const verdict = requiredObject(
+      summary.verdict,
+      "report.summary.verdict"
+    );
+    requiredFields(verdict, "report.summary.verdict", [
+      "good",
+      "defective",
+      "not_inspected"
+    ]);
+    ["good", "defective", "not_inspected"].forEach(key => {
+      requiredNumber(
+        verdict[key],
+        "report.summary.verdict." + key,
+        Infinity,
+        true
+      );
+    });
+
+    const labels = requiredObject(summary.label, "report.summary.label");
+    requiredFields(labels, "report.summary.label", [
+      "good",
+      "defective",
+      "unknown"
+    ]);
+    ["good", "defective", "unknown"].forEach(key => {
+      requiredNumber(
+        labels[key],
+        "report.summary.label." + key,
+        Infinity,
+        true
+      );
+    });
+
+    const accuracy = requiredObject(
+      summary.accuracy,
+      "report.summary.accuracy"
+    );
+    requiredFields(accuracy, "report.summary.accuracy", [
+      "judged",
+      "correct",
+      "incorrect",
+      "pct",
+      "missed_defects",
+      "false_alarms"
+    ]);
+    ["judged", "correct", "incorrect", "missed_defects", "false_alarms"]
+      .forEach(key => {
+        requiredNumber(
+          accuracy[key],
+          "report.summary.accuracy." + key,
+          Infinity,
+          true
+        );
+      });
+    requiredNumber(accuracy.pct, "report.summary.accuracy.pct", 100);
+
+    const defectTypes = requiredObject(
+      summary.defect_types,
+      "report.summary.defect_types"
+    );
+    requiredFields(defectTypes, "report.summary.defect_types", [
+      "assessed",
+      "counts",
+      "rates_pct",
+      "cutoffs",
+      "per_casting",
+      "combinations"
+    ]);
+    requiredNumber(
+      defectTypes.assessed,
+      "report.summary.defect_types.assessed",
+      Infinity,
+      true
+    );
+
+    const defectNames = ["fray", "chip", "spot", "slash"];
+    ["counts", "rates_pct", "cutoffs"].forEach(field => {
+      const values = requiredObject(
+        defectTypes[field],
+        "report.summary.defect_types." + field
+      );
+      requiredFields(
+        values,
+        "report.summary.defect_types." + field,
+        defectNames
+      );
+      defectNames.forEach(name => {
+        requiredNumber(
+          values[name],
+          "report.summary.defect_types." + field + "." + name,
+          field === "counts"
+            ? Infinity
+            : field === "rates_pct"
+              ? 100
+              : 1,
+          field === "counts"
+        );
+      });
+    });
+
+    const perCasting = requiredObject(
+      defectTypes.per_casting,
+      "report.summary.defect_types.per_casting"
+    );
+    Object.entries(perCasting).forEach(([key, count]) => {
+      requiredNumber(
+        count,
+        "report.summary.defect_types.per_casting." + key,
+        Infinity,
+        true
+      );
+    });
+
+    if (!Array.isArray(defectTypes.combinations)) {
+      throw new TypeError(
+        "report.summary.defect_types.combinations must be an array"
+      );
+    }
+
+    defectTypes.combinations.forEach((combination, index) => {
+      const name = "report.summary.defect_types.combinations[" + index + "]";
+      const entry = requiredObject(combination, name);
+      requiredFields(entry, name, ["types", "count", "pct"]);
+
+      if (
+        !Array.isArray(entry.types) ||
+        entry.types.some(type => !defectNames.includes(type))
+      ) {
+        throw new TypeError(name + ".types contains an invalid defect type");
+      }
+
+      requiredNumber(entry.count, name + ".count", Infinity, true);
+      requiredNumber(entry.pct, name + ".pct", 100);
+    });
+
+    if (!Array.isArray(report.castings)) {
+      throw new TypeError("report.castings must be an array");
+    }
+
+    if (report.castings.length !== castingCount) {
+      throw new RangeError(
+        "report.castings length must match report.summary.castings"
+      );
+    }
+
+    const verdictCounts = { good: 0, defective: 0, not_inspected: 0 };
+    const labelCounts = { good: 0, defective: 0, unknown: 0 };
+    const correctCounts = { correct: 0, incorrect: 0 };
+
+    report.castings.forEach((casting, index) => {
+      const name = "report.castings[" + index + "]";
+      const entry = requiredObject(casting, name);
+      requiredFields(entry, name, [
+        "id",
+        "file",
+        "split",
+        "label",
+        "verdict",
+        "confidence",
+        "correct",
+        "defects",
+        "defect_count",
+        "duplicate"
+      ]);
+      requiredString(entry.id, name + ".id");
+      requiredString(entry.file, name + ".file");
+      requiredString(entry.split, name + ".split");
+      requiredEnum(entry.label, name + ".label", [
+        "good",
+        "defective",
+        "unknown"
+      ]);
+      requiredEnum(entry.verdict, name + ".verdict", [
+        "good",
+        "defective",
+        "not_inspected"
+      ]);
+      requiredNumber(entry.confidence, name + ".confidence", 1);
+
+      if (entry.correct !== null && typeof entry.correct !== "boolean") {
+        throw new TypeError(name + ".correct must be a boolean or null");
+      }
+
+      if (entry.correct !== null) {
+        correctCounts[entry.correct ? "correct" : "incorrect"] += 1;
+      }
+
+      verdictCounts[entry.verdict] += 1;
+      labelCounts[entry.label] += 1;
+
+      if (entry.defect_count !== null) {
+        requiredNumber(entry.defect_count, name + ".defect_count", Infinity, true);
+      }
+
+      if (entry.defects !== null) {
+        if (!Array.isArray(entry.defects)) {
+          throw new TypeError(name + ".defects must be an array or null");
+        }
+
+        entry.defects.forEach((defect, defectIndex) => {
+          const defectName = name + ".defects[" + defectIndex + "]";
+          const defectEntry = requiredObject(defect, defectName);
+          requiredFields(defectEntry, defectName, [
+            "type",
+            "score",
+            "present",
+            "cutoff"
+          ]);
+          requiredEnum(defectEntry.type, defectName + ".type", defectNames);
+          requiredNumber(defectEntry.score, defectName + ".score", 1);
+          requiredBoolean(defectEntry.present, defectName + ".present");
+          requiredNumber(defectEntry.cutoff, defectName + ".cutoff", 1);
+        });
+      }
+
+      if (entry.duplicate !== null) {
+        const duplicate = requiredObject(entry.duplicate, name + ".duplicate");
+        requiredFields(duplicate, name + ".duplicate", ["of", "residual"]);
+        requiredString(duplicate.of, name + ".duplicate.of");
+        requiredNumber(duplicate.residual, name + ".duplicate.residual");
+      }
+    });
+
+    ["good", "defective", "not_inspected"].forEach(key => {
+      if (verdictCounts[key] !== verdict[key]) {
+        throw new RangeError(
+          "report.summary.verdict." + key + " does not match report.castings"
+        );
+      }
+    });
+    ["good", "defective", "unknown"].forEach(key => {
+      if (labelCounts[key] !== labels[key]) {
+        throw new RangeError(
+          "report.summary.label." + key + " does not match report.castings"
+        );
+      }
+    });
+
+    if (
+      correctCounts.correct + correctCounts.incorrect !== accuracy.judged ||
+      correctCounts.correct !== accuracy.correct ||
+      correctCounts.incorrect !== accuracy.incorrect
+    ) {
+      throw new RangeError(
+        "report.summary.accuracy does not match report.castings"
+      );
+    }
+  }
+
   /*
     Production data contains mutually exclusive counts:
     good parts and defective parts.
@@ -119,6 +549,12 @@
       Infinity,
       true
     );
+    const suppliedTotal = optional(
+      value.total,
+      name + ".total",
+      Infinity,
+      true
+    );
 
     if (
       good !== null &&
@@ -128,7 +564,17 @@
       throw new RangeError("Total exceeds safe integer range");
     }
 
+    const classified = (good ?? 0) + (defective ?? 0);
+
+    if (
+      suppliedTotal !== null &&
+      classified > suppliedTotal
+    ) {
+      throw new RangeError(name + ".total is less than classified parts");
+    }
+
     return {
+      total: suppliedTotal,
       good,
       defective
     };
@@ -143,12 +589,13 @@
     When total is zero, percentages remain unavailable.
   */
   function totals(p) {
-    const total =
+    const calculatedTotal =
       p &&
       p.good !== null &&
       p.defective !== null
         ? p.good + p.defective
         : null;
+    const total = p?.total ?? calculatedTotal;
 
     return {
       total,
@@ -178,14 +625,79 @@
       throw new TypeError("data must be an object");
     }
 
-    const d = object(data.defects, "defects");
-    const m = object(data.october, "october");
+    const summary = object(data.summary, "summary");
+    let source = data;
+    let reportInspection = null;
+
+    if (summary) {
+      const verdict = object(summary.verdict, "summary.verdict");
+      const accuracy = object(summary.accuracy, "summary.accuracy");
+      const defectTypes = object(
+        summary.defect_types,
+        "summary.defect_types"
+      );
+      const defectCounts = object(
+        defectTypes?.counts,
+        "summary.defect_types.counts"
+      );
+      const castingCount = optional(
+        summary.castings,
+        "summary.castings",
+        Infinity,
+        true
+      );
+      const goodCount = optional(
+        verdict?.good,
+        "summary.verdict.good",
+        Infinity,
+        true
+      );
+      const judged = optional(
+        accuracy?.judged,
+        "summary.accuracy.judged",
+        Infinity,
+        true
+      );
+      const incorrect = optional(
+        accuracy?.incorrect,
+        "summary.accuracy.incorrect",
+        Infinity,
+        true
+      );
+      const errorRatePct =
+        judged > 0 && incorrect !== null
+          ? 100 * incorrect / judged
+          : null;
+      const partQualityPct =
+        castingCount > 0 && goodCount !== null
+          ? 100 * goodCount / castingCount
+          : null;
+
+      source = {
+        production: {
+          total: castingCount,
+          good: goodCount,
+          defective: verdict?.defective
+        },
+        defects: defectCounts,
+        qualityScore: partQualityPct
+      };
+
+      reportInspection = {
+        errorRatePct,
+        qualityScore: partQualityPct
+      };
+    }
+
+    const d = object(source.defects, "defects");
+    const m = object(source.inspection, "inspection");
+    const normalizedProduction = production(
+      source.production,
+      "production"
+    );
 
     return {
-      production: production(
-        data.production,
-        "production"
-      ),
+      production: normalizedProduction,
 
       defects: d
         ? Object.fromEntries(
@@ -202,42 +714,57 @@
         : null,
 
       runtimeSeconds: optional(
-        data.runtimeSeconds,
+        source.runtimeSeconds,
         "runtimeSeconds"
       ),
 
       averageTimeSeconds: optional(
-        data.averageTimeSeconds,
+        source.averageTimeSeconds,
         "averageTimeSeconds"
       ),
 
       qualityScore: optional(
-        data.qualityScore,
+        source.qualityScore,
         "qualityScore",
         100
       ),
 
-      october: m
+      inspection: reportInspection
+        ? {
+            production: normalizedProduction,
+            errorRatePct: optional(
+              reportInspection.errorRatePct,
+              "summary.accuracy.errorRatePct",
+              100
+            ),
+            averageTimeSeconds: null,
+            qualityScore: optional(
+              reportInspection.qualityScore,
+              "summary.accuracy.pct",
+              100
+            )
+          }
+        : m
         ? {
             production: production(
               m.production,
-              "october.production"
+              "inspection.production"
             ),
 
             errorRatePct: optional(
               m.errorRatePct,
-              "october.errorRatePct",
+              "inspection.errorRatePct",
               100
             ),
 
             averageTimeSeconds: optional(
               m.averageTimeSeconds,
-              "october.averageTimeSeconds"
+              "inspection.averageTimeSeconds"
             ),
 
             qualityScore: optional(
               m.qualityScore,
-              "october.qualityScore",
+              "inspection.qualityScore",
               100
             )
           }
@@ -364,25 +891,25 @@
       )
     );
 
-    // October summary
-    const m = data.october;
+    // Inspection summary
+    const m = data.inspection;
     const mt = totals(m?.production ?? null);
 
-    put("month-total", count(mt.total));
-    put("month-good", count(mt.good));
-    put("month-bad", count(mt.bad));
-    put("month-yield", pct(mt.yield));
-    put("month-defect", pct(mt.defectRate));
+    put("inspection-total", count(mt.total));
+    put("inspection-good", count(mt.good));
+    put("inspection-bad", count(mt.bad));
+    put("inspection-yield", pct(mt.yield));
+    put("inspection-defect", pct(mt.defectRate));
 
-    put("month-error", pct(m?.errorRatePct ?? null));
+    put("inspection-error", pct(m?.errorRatePct ?? null));
 
     put(
-      "month-time",
+      "inspection-time",
       seconds(m?.averageTimeSeconds ?? null)
     );
 
     put(
-      "month-quality",
+      "inspection-quality",
       pct(m?.qualityScore ?? null)
     );
 
@@ -431,6 +958,27 @@
       render(current);
     }
   });
+
+  document
+    .getElementById("report-file")
+    .addEventListener("change", async event => {
+      const file = event.target.files[0];
+
+      if (!file) {
+        return;
+      }
+
+      try {
+        const report = JSON.parse(await file.text());
+        validateInspectionReport(report);
+        window.ManufacturingDashboard.update(report);
+        put("data-status", "Displaying inspection report: " + file.name);
+      } catch (error) {
+        put("data-status", "Could not load report: " + error.message);
+      }
+
+      event.target.value = "";
+    });
 
   // Display the initial empty dashboard.
   render(current);
