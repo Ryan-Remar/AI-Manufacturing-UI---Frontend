@@ -1,0 +1,213 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+
+  <title>AI Manufacturing UI</title>
+
+  <link rel="stylesheet" href="styles.css">
+  <script src="app.js" defer></script>
+</head>
+
+<body>
+  <main>
+    <header>
+      <p class="eyebrow">OUTPUT / FRONTEND</p>
+
+      <h1>Manufacturing Quality Dashboard</h1>
+
+      <p id="data-status" role="status">
+        Waiting for data. No input has been connected.
+      </p>
+    </header>
+
+    <!-- PRODUCTION TOTALS -->
+    <section aria-labelledby="production-heading">
+      <h2 id="production-heading">Total Parts Produced</h2>
+
+      <div class="metrics">
+        <article class="metric">
+          <h3>Total Parts Produced</h3>
+          <p id="total" class="number">—</p>
+        </article>
+
+        <article class="metric good">
+          <h3>Good Parts</h3>
+          <p id="good" class="number">—</p>
+        </article>
+
+        <article class="metric bad">
+          <h3>Defective Parts</h3>
+          <p id="bad" class="number">—</p>
+        </article>
+
+        <article class="metric">
+          <h3>Defect Rate</h3>
+          <p id="defect-rate" class="number">—</p>
+        </article>
+      </div>
+    </section>
+
+    <div class="middle">
+
+      <!-- DEFECT ANALYSIS -->
+      <section aria-labelledby="defect-heading">
+        <h2 id="defect-heading">Defect Analysis</h2>
+
+        <div class="defect">
+          <div>
+            <h3>Frayed Edge</h3>
+            <p>
+              Ragged, feathered, or torn rim along its length;
+              continuous edge damage.
+            </p>
+          </div>
+          <strong id="fray">—</strong>
+        </div>
+
+        <div class="defect">
+          <div>
+            <h3>Chip in Rim</h3>
+            <p>
+              A localized missing piece or bite out of the rim.
+            </p>
+          </div>
+          <strong id="chip">—</strong>
+        </div>
+
+        <div class="defect">
+          <div>
+            <h3>Spot on Face</h3>
+            <p>
+              A dark or light blemish on the flat face,
+              away from the rim; not a scratch.
+            </p>
+          </div>
+          <strong id="spot">—</strong>
+        </div>
+
+        <div class="defect">
+          <div>
+            <h3>Slash/Scratch</h3>
+            <p>
+              A linear scratch, gouge, or drag line,
+              longer than it is wide.
+            </p>
+          </div>
+          <strong id="slash">—</strong>
+        </div>
+
+        <p class="note">
+          Counts by category. A part may have more than one defect.
+        </p>
+      </section>
+
+      <div class="side">
+
+        <!-- RUN TIME -->
+        <section aria-labelledby="runtime-heading">
+          <h2 id="runtime-heading">Run Time</h2>
+
+          <p id="runtime" class="number">—</p>
+
+          <div class="submetric">
+            <h3>Avg. Time / Part</h3>
+            <p id="avg-time">—</p>
+          </div>
+        </section>
+
+        <!-- QUALITY SCORE -->
+        <section aria-labelledby="quality-heading">
+          <h2 id="quality-heading">Quality Score</h2>
+
+          <svg
+            id="gauge"
+            viewBox="0 0 320 185"
+            role="img"
+            aria-label="Quality score: waiting for data"
+          >
+            <!-- JavaScript draws the five colored bands here. -->
+            <g id="gauge-bands"></g>
+
+            <!-- The needle stays hidden until a score is supplied. -->
+            <g id="needle" visibility="hidden">
+              <line
+                x1="160"
+                y1="150"
+                x2="45"
+                y2="150"
+                stroke="#172233"
+                stroke-width="4"
+                stroke-linecap="round"
+              />
+
+              <circle
+                cx="160"
+                cy="150"
+                r="7"
+                fill="#172233"
+              />
+            </g>
+
+            <text x="25" y="177">0</text>
+            <text x="265" y="177">100%</text>
+          </svg>
+
+          <p id="quality" class="gauge-value">—</p>
+
+          <div class="legend">
+            <span><i class="red"></i>0–20%</span>
+            <span><i class="orange"></i>20–40%</span>
+            <span><i class="yellow"></i>40–60%</span>
+            <span><i class="lime"></i>60–80%</span>
+            <span><i class="green"></i>80–100%</span>
+          </div>
+        </section>
+      </div>
+    </div>
+
+    <!-- MONTHLY SUMMARY -->
+    <section aria-labelledby="monthly-heading">
+      <h2 id="monthly-heading">Monthly Summary</h2>
+      <h3 class="month-title">October Score</h3>
+
+      <div class="table-wrap">
+        <table>
+          <caption class="sr-only">
+            October production and quality summary
+          </caption>
+
+          <thead>
+            <tr>
+              <th scope="col">Month</th>
+              <th scope="col">Error Rate</th>
+              <th scope="col">Amount Produced</th>
+              <th scope="col">Total Good</th>
+              <th scope="col">Total Bad</th>
+              <th scope="col">Yield</th>
+              <th scope="col">Defect Rate</th>
+              <th scope="col">Avg. Time</th>
+              <th scope="col">Quality Score</th>
+            </tr>
+          </thead>
+
+          <tbody>
+            <tr>
+              <th scope="row">October</th>
+              <td id="month-error">—</td>
+              <td id="month-total">—</td>
+              <td id="month-good">—</td>
+              <td id="month-bad">—</td>
+              <td id="month-yield">—</td>
+              <td id="month-defect">—</td>
+              <td id="month-time">—</td>
+              <td id="month-quality">—</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+  </main>
+</body>
+</html>

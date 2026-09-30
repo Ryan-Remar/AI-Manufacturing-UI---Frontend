@@ -1,0 +1,320 @@
+:root {
+  color-scheme: light;
+
+  font-family: Arial, Helvetica, sans-serif;
+  color: #172233;
+  background: #ffffff;
+
+  --red: #df4848;
+  --orange: #f18c34;
+  --yellow: #f1ca3e;
+  --lime: #a3d545;
+  --green: #36a568;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+}
+
+main {
+  max-width: 1280px;
+  margin: auto;
+  padding: 40px 32px 48px;
+}
+
+header {
+  margin-bottom: 32px;
+}
+
+.eyebrow {
+  font-size: 12px;
+  letter-spacing: 2px;
+  color: #586678;
+  margin: 0 0 12px;
+}
+
+h1 {
+  font-size: 30px;
+  margin: 0 0 12px;
+}
+
+#data-status {
+  color: #586678;
+  font-size: 14px;
+}
+
+h2 {
+  font-size: 19px;
+  margin: 0 0 22px;
+}
+
+h3 {
+  font-size: 14px;
+  margin: 0 0 8px;
+}
+
+section {
+  margin-bottom: 24px;
+}
+
+/* Production cards */
+
+.metrics {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 16px;
+}
+
+.metric,
+.middle section,
+main > section:last-child {
+  border: 1px solid #dde2e8;
+  border-radius: 10px;
+  padding: 24px;
+  background: white;
+}
+
+.metric {
+  border-top: 3px solid #718aa6;
+}
+
+.metric.good {
+  border-top-color: var(--green);
+}
+
+.metric.bad {
+  border-top-color: var(--red);
+}
+
+.metric h3 {
+  color: #586678;
+  font-weight: normal;
+}
+
+.number {
+  font-size: 36px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  margin: 16px 0 0;
+}
+
+/* Defect analysis and runtime/quality sections */
+
+.middle {
+  display: grid;
+  grid-template-columns: 1.3fr 1fr;
+  gap: 24px;
+}
+
+.defect {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 24px;
+
+  padding: 18px 0;
+  border-bottom: 1px solid #edf0f3;
+}
+
+.defect:first-of-type {
+  padding-top: 0;
+}
+
+.defect p,
+.note {
+  color: #586678;
+  font-size: 13px;
+  line-height: 1.6;
+  margin: 0;
+}
+
+.defect strong {
+  font-size: 24px;
+  min-width: 35px;
+  text-align: right;
+}
+
+.note {
+  margin-top: 18px;
+}
+
+.side {
+  display: flex;
+  flex-direction: column;
+}
+
+.side section {
+  flex: 1;
+}
+
+.submetric {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+
+  margin-top: 24px;
+  padding-top: 18px;
+  border-top: 1px solid #edf0f3;
+}
+
+.submetric p {
+  margin: 0;
+  font-variant-numeric: tabular-nums;
+}
+
+.submetric h3 {
+  margin: 0;
+  color: #586678;
+  font-weight: normal;
+}
+
+/* Quality gauge */
+
+svg {
+  display: block;
+  width: 100%;
+  max-width: 290px;
+  margin: auto;
+}
+
+svg text {
+  font: 12px Arial;
+  fill: #586678;
+}
+
+.gauge-value {
+  text-align: center;
+  font-size: 30px;
+  font-weight: bold;
+  margin: 0 0 16px;
+}
+
+.legend {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 10px 12px;
+
+  font-size: 11px;
+  color: #445165;
+}
+
+.legend span {
+  white-space: nowrap;
+}
+
+.legend i {
+  display: inline-block;
+  width: 9px;
+  height: 9px;
+  border-radius: 2px;
+  margin-right: 4px;
+}
+
+.red {
+  background: var(--red);
+}
+
+.orange {
+  background: var(--orange);
+}
+
+.yellow {
+  background: var(--yellow);
+}
+
+.lime {
+  background: var(--lime);
+}
+
+.green {
+  background: var(--green);
+}
+
+/* Monthly summary */
+
+.month-title {
+  color: #586678;
+  margin-bottom: 18px;
+}
+
+.table-wrap {
+  overflow-x: auto;
+}
+
+table {
+  border-collapse: collapse;
+  width: 100%;
+  font-size: 13px;
+  text-align: left;
+}
+
+th,
+td {
+  padding: 16px 12px;
+  white-space: nowrap;
+  border-bottom: 1px solid #edf0f3;
+}
+
+thead th {
+  background: #f7f9fb;
+  color: #586678;
+  font-weight: normal;
+}
+
+td {
+  font-variant-numeric: tabular-nums;
+}
+
+/* Accessible text that does not need to appear visually */
+
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  border: 0;
+}
+
+/* Smaller screens */
+
+@media (max-width: 850px) {
+  .metrics {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  .middle {
+    grid-template-columns: 1fr;
+  }
+
+  main {
+    padding: 24px 18px;
+  }
+
+  .number {
+    font-size: 30px;
+  }
+
+  h1 {
+    font-size: 25px;
+  }
+}
+
+@media (max-width: 420px) {
+  .metrics {
+    grid-template-columns: 1fr;
+  }
+
+  .metric,
+  .middle section,
+  main > section:last-child {
+    padding: 18px;
+  }
+}
