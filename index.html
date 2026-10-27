@@ -18,9 +18,12 @@
       <h1>Manufacturing Quality Dashboard</h1>
 
       <p id="data-status" role="status">
-        Waiting for data. No input has been connected.
+        Connecting to the backend inspection report...
       </p>
 
+      <button id="refresh-report" class="report-load" type="button">
+        Refresh from backend
+      </button>
       <input
         id="report-file"
         class="sr-only"
@@ -28,7 +31,7 @@
         accept=".json,application/json"
       >
       <label class="report-load" for="report-file">
-        Load inspection report
+        Load report from file
       </label>
     </header>
 

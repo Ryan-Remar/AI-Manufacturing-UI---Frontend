@@ -959,6 +959,43 @@
     }
   });
 
+  function displayInspectionReport(report, source) {
+    validateInspectionReport(report);
+    window.ManufacturingDashboard.update(report);
+    put("data-status", "Displaying inspection report " + source + ".");
+  }
+
+  async function loadInspectionReport() {
+    const button = document.getElementById("refresh-report");
+    button.disabled = true;
+    put("data-status", "Loading inspection report from backend...");
+
+    try {
+      const response = await fetch("/api/inspection-report", {
+        cache: "no-store"
+      });
+      const report = await response.json();
+
+      if (!response.ok) {
+        throw new Error(
+          typeof report.error === "string"
+            ? report.error
+            : "Request failed (" + response.status + ")"
+        );
+      }
+
+      displayInspectionReport(report, "from backend");
+    } catch (error) {
+      put("data-status", "Could not load backend report: " + error.message);
+    } finally {
+      button.disabled = false;
+    }
+  }
+
+  document
+    .getElementById("refresh-report")
+    .addEventListener("click", loadInspectionReport);
+
   document
     .getElementById("report-file")
     .addEventListener("change", async event => {
@@ -970,9 +1007,7 @@
 
       try {
         const report = JSON.parse(await file.text());
-        validateInspectionReport(report);
-        window.ManufacturingDashboard.update(report);
-        put("data-status", "Displaying inspection report: " + file.name);
+        displayInspectionReport(report, "from file " + file.name);
       } catch (error) {
         put("data-status", "Could not load report: " + error.message);
       }
@@ -982,4 +1017,5 @@
 
   // Display the initial empty dashboard.
   render(current);
+  loadInspectionReport();
 })();
