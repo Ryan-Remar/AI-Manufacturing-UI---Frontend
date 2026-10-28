@@ -2,328 +2,91 @@
 <html lang="en">
 <head>
   <meta charset="utf-8">
-  <meta
-    name="viewport"
-    content="width=device-width, initial-scale=1"
-  >
-
+  <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>AI Manufacturing UI</title>
-
   <link rel="stylesheet" href="styles.css">
   <script src="app.js" defer></script>
 </head>
-
 <body>
-  <main>
-    <header>
-      <p class="eyebrow">OUTPUT / FRONTEND</p>
+<main>
+  <header>
+    <p class="eyebrow">OUTPUT / FRONTEND</p>
+    <h1>Manufacturing Quality Dashboard</h1>
+    <p id="data-status" role="status">Waiting for data. No report has been loaded.</p>
+  </header>
 
-      <h1>Manufacturing Quality Dashboard</h1>
-
-      <p id="data-status" role="status">
-        Waiting for data. No report has been loaded.
-      </p>
-    </header>
-
-    <!-- SAVED REPORTS AND JSON UPLOADS -->
-    <section
-      aria-labelledby="reports-heading"
-      class="panel"
-    >
-      <h2 id="reports-heading">Saved Reports</h2>
-
-      <div class="controls">
-        <label>
-          Upload month
-          <input
-            id="upload-month"
-            type="month"
-            required
-          >
-        </label>
-
-        <label>
-          Upload JSON report
-          <input
-            id="report-file"
-            type="file"
-            accept=".json,application/json"
-          >
-        </label>
-
-        <label>
-          Restore saved reports
-          <input
-            id="history-file"
-            type="file"
-            accept=".json,application/json"
-          >
-        </label>
-
-        <button
-          id="export-history"
-          type="button"
-          disabled
-        >
-          Download saved reports
-        </button>
-      </div>
-
-      <div class="controls selection">
-        <label>
-          View month
-
-          <select id="month-select" disabled>
-            <option value="">No saved months</option>
-          </select>
-        </label>
-
-        <label>
-          View report
-
-          <select id="report-select" disabled>
-            <option value="">No saved reports</option>
-          </select>
-        </label>
-      </div>
-
-      <p class="note">
-        Select the month the report belongs to before uploading.
-        Saved reports stay in this browser on this device.
-        Download a backup before clearing browser data.
-      </p>
-
-      <p
-        id="storage-status"
-        role="status"
-        class="note"
-      ></p>
-
-      <p
-        id="error-message"
-        role="alert"
-        class="error"
-        hidden
-      ></p>
-    </section>
-
-    <!-- PRODUCTION RESULTS -->
-    <section aria-labelledby="production-heading">
-      <h2 id="production-heading">Production Results</h2>
-
-      <div class="metrics">
-        <article class="metric">
-          <h3>Total Parts Produced</h3>
-          <p id="total" class="number">—</p>
-        </article>
-
-        <article class="metric good">
-          <h3>Good Parts</h3>
-          <p id="good" class="number">—</p>
-        </article>
-
-        <article class="metric bad">
-          <h3>Defective Parts</h3>
-          <p id="bad" class="number">—</p>
-        </article>
-
-        <article class="metric">
-          <h3>Defect Rate</h3>
-          <p id="defect-rate" class="number">—</p>
-        </article>
-      </div>
-    </section>
-
-    <div class="middle">
-
-      <!-- RANKED DEFECT ANALYSIS -->
-      <section
-        aria-labelledby="defect-heading"
-        class="panel"
-      >
-        <h2 id="defect-heading">Defect Analysis</h2>
-
-        <p class="note">
-          Ranked from most common to least common.
-          Equal counts share a rank.
-        </p>
-
-        <div id="defect-list">
-          <div class="defect" data-defect="fray">
-            <span class="rank">—</span>
-
-            <div>
-              <h3>Frayed Edge</h3>
-
-              <p>
-                Ragged, feathered, or torn rim along its length;
-                continuous edge damage.
-              </p>
-            </div>
-
-            <strong id="fray">—</strong>
-          </div>
-
-          <div class="defect" data-defect="chip">
-            <span class="rank">—</span>
-
-            <div>
-              <h3>Chip in Rim</h3>
-
-              <p>
-                A localized missing piece or bite out of the rim.
-              </p>
-            </div>
-
-            <strong id="chip">—</strong>
-          </div>
-
-          <div class="defect" data-defect="spot">
-            <span class="rank">—</span>
-
-            <div>
-              <h3>Spot on Face</h3>
-
-              <p>
-                A dark or light blemish on the flat face,
-                away from the rim; not a scratch.
-              </p>
-            </div>
-
-            <strong id="spot">—</strong>
-          </div>
-
-          <div class="defect" data-defect="slash">
-            <span class="rank">—</span>
-
-            <div>
-              <h3>Slash/Scratch</h3>
-
-              <p>
-                A linear scratch, gouge, or drag line,
-                longer than it is wide.
-              </p>
-            </div>
-
-            <strong id="slash">—</strong>
-          </div>
-        </div>
-
-        <p class="note">
-          A part may have more than one defect.
-          Category counts are not added together to calculate
-          defective parts. Unavailable categories appear last.
-        </p>
-      </section>
-
-      <!-- QUALITY FUEL BAR -->
-      <section
-        aria-labelledby="quality-heading"
-        class="panel quality-panel"
-      >
-        <h2 id="quality-heading">Quality Score</h2>
-
-        <p id="quality" class="quality-value">—</p>
-
-        <p id="quality-status" class="quality-status">
-          Waiting for a quality score
-        </p>
-
-        <div
-          id="quality-meter"
-          class="fuel-meter unavailable"
-          role="meter"
-          aria-label="Quality score"
-          aria-valuemin="0"
-          aria-valuemax="100"
-          aria-valuetext="Unavailable"
-        >
-          <div class="fuel-colors" aria-hidden="true">
-            <span class="red"></span>
-            <span class="orange"></span>
-            <span class="yellow"></span>
-            <span class="lime"></span>
-            <span class="green"></span>
-          </div>
-
-          <div id="fuel-cover" class="fuel-cover"></div>
-
-          <div
-            id="fuel-marker"
-            class="fuel-marker"
-            hidden
-          ></div>
-        </div>
-
-        <div class="fuel-scale" aria-hidden="true">
-          <span>0%</span>
-          <span>100%</span>
-        </div>
-
-        <div class="legend">
-          <span><i class="red"></i>F · Bad</span>
-          <span><i class="orange"></i>D · Decent</span>
-          <span><i class="yellow"></i>C · Good</span>
-          <span><i class="lime"></i>B · Great</span>
-          <span><i class="green"></i>A · Excellent</span>
-        </div>
-
-        <p class="note">
-          F: 0–&lt;20% ·
-          D: 20–&lt;40% ·
-          C: 40–&lt;60% ·
-          B: 60–&lt;80% ·
-          A: 80–100%.
-        </p>
-      </section>
+  <section aria-labelledby="reports-heading" class="panel">
+    <h2 id="reports-heading">Saved Reports</h2>
+    <div class="controls">
+      <label>Upload month<input id="upload-month" type="month" required></label>
+      <label>Upload JSON report<input id="report-file" type="file" accept=".json,application/json"></label>
+      <label>Restore saved reports<input id="history-file" type="file" accept=".json,application/json"></label>
+      <button id="export-history" type="button" disabled>Download saved reports</button>
     </div>
+    <div class="controls selection">
+      <label>Backend JSON URL<input id="backend-url" type="text" placeholder="Enter your team's backend endpoint"></label>
+      <button id="refresh-report" type="button">Refresh from backend</button>
+      <button id="save-current" type="button">Save displayed report</button>
+    </div>
+    <div class="controls selection">
+      <label>View month<select id="month-select" disabled><option value="">No saved months</option></select></label>
+      <label>View report<select id="report-select" disabled><option value="">No saved reports</option></select></label>
+    </div>
+    <p class="note">Select the month the report belongs to before uploading. Saved reports stay in this browser on this device. Download a backup before clearing browser data.</p>
+    <p id="storage-status" role="status" class="note"></p>
+    <p id="error-message" role="alert" class="error" hidden></p>
+  </section>
 
-    <!-- SELECTED REPORT SUMMARY -->
-    <section
-      aria-labelledby="summary-heading"
-      class="panel"
-    >
-      <h2 id="summary-heading">Selected Report Summary</h2>
+  <section aria-labelledby="production-heading">
+    <h2 id="production-heading">Production Results</h2>
+    <div class="metrics">
+      <article class="metric"><h3>Total Parts Produced</h3><p id="total" class="number">—</p></article>
+      <article class="metric good"><h3>Good Parts</h3><p id="good" class="number">—</p></article>
+      <article class="metric bad"><h3>Defective Parts</h3><p id="bad" class="number">—</p></article>
+      <article class="metric"><h3>Defect Rate</h3><p id="defect-rate" class="number">—</p></article>
+    </div>
+  </section>
 
-      <p id="summary-label" class="note">
-        No report selected.
-      </p>
-
-      <div class="table-wrap">
-        <table>
-          <caption class="sr-only">
-            Metrics for the selected report;
-            reports are not combined into monthly totals.
-          </caption>
-
-          <thead>
-            <tr>
-              <th scope="col">Month</th>
-              <th scope="col">Error Rate</th>
-              <th scope="col">Amount Produced</th>
-              <th scope="col">Total Good</th>
-              <th scope="col">Total Bad</th>
-              <th scope="col">Yield</th>
-              <th scope="col">Defect Rate</th>
-              <th scope="col">Quality Score</th>
-            </tr>
-          </thead>
-
-          <tbody>
-            <tr>
-              <th id="summary-month" scope="row">—</th>
-              <td id="month-error">—</td>
-              <td id="month-total">—</td>
-              <td id="month-good">—</td>
-              <td id="month-bad">—</td>
-              <td id="month-yield">—</td>
-              <td id="month-defect">—</td>
-              <td id="month-quality">—</td>
-            </tr>
-          </tbody>
-        </table>
+  <div class="middle">
+    <section aria-labelledby="defect-heading" class="panel">
+      <h2 id="defect-heading">Defect Analysis</h2>
+      <p class="note">Ranked from most common to least common. Equal counts share a rank.</p>
+      <div id="defect-list">
+        <div class="defect" data-defect="fray"><span class="rank">—</span><div><h3>Frayed Edge</h3><p>Ragged, feathered, or torn rim along its length; continuous edge damage.</p></div><strong id="fray">—</strong></div>
+        <div class="defect" data-defect="chip"><span class="rank">—</span><div><h3>Chip in Rim</h3><p>A localized missing piece or bite out of the rim.</p></div><strong id="chip">—</strong></div>
+        <div class="defect" data-defect="spot"><span class="rank">—</span><div><h3>Spot on Face</h3><p>A dark or light blemish on the flat face, away from the rim; not a scratch.</p></div><strong id="spot">—</strong></div>
+        <div class="defect" data-defect="slash"><span class="rank">—</span><div><h3>Slash/Scratch</h3><p>A linear scratch, gouge, or drag line, longer than it is wide.</p></div><strong id="slash">—</strong></div>
       </div>
+      <p class="note">A part may have more than one defect. Category counts are not added together to calculate defective parts. Defect assessment and good/defective classification may use different populations. Unavailable categories appear last.</p>
     </section>
-  </main>
+
+    <section aria-labelledby="quality-heading" class="panel quality-panel">
+      <h2 id="quality-heading">Quality Score</h2>
+      <p id="quality" class="quality-value">—</p>
+      <p id="quality-status" class="quality-status">Waiting for a quality score</p>
+      <div id="quality-meter" class="fuel-meter unavailable" role="meter" aria-label="Quality score" aria-valuemin="0" aria-valuemax="100" aria-valuetext="Unavailable">
+        <div class="fuel-colors" aria-hidden="true"><span class="red"></span><span class="orange"></span><span class="yellow"></span><span class="lime"></span><span class="green"></span></div>
+        <div id="fuel-cover" class="fuel-cover"></div>
+        <div id="fuel-marker" class="fuel-marker" hidden></div>
+      </div>
+      <div class="fuel-scale" aria-hidden="true"><span>0%</span><span>100%</span></div>
+      <div class="legend">
+        <span><i class="red"></i>F · Bad</span><span><i class="orange"></i>D · Decent</span><span><i class="yellow"></i>C · Good</span><span><i class="lime"></i>B · Great</span><span><i class="green"></i>A · Excellent</span>
+      </div>
+      <p id="quality-basis" class="note"></p>
+      <p class="note">F: 0–&lt;20% · D: 20–&lt;40% · C: 40–&lt;60% · B: 60–&lt;80% · A: 80–100%.</p>
+    </section>
+  </div>
+
+  <section aria-labelledby="summary-heading" class="panel">
+    <h2 id="summary-heading">Selected Report Summary</h2>
+    <p id="summary-label" class="note">No report selected.</p>
+    <div class="table-wrap"><table>
+      <caption class="sr-only">Metrics for the selected report; reports are not combined into monthly totals.</caption>
+      <thead><tr><th scope="col">Month</th><th scope="col">Model Error Rate</th><th scope="col">Amount Produced</th><th scope="col">Total Good</th><th scope="col">Total Bad</th><th scope="col">Yield</th><th scope="col">Defect Rate</th><th scope="col">Quality Score</th></tr></thead>
+      <tbody><tr><th id="summary-month" scope="row">—</th><td id="month-error">—</td><td id="month-total">—</td><td id="month-good">—</td><td id="month-bad">—</td><td id="month-yield">—</td><td id="month-defect">—</td><td id="month-quality">—</td></tr></tbody>
+    </table></div>
+  </section>
+</main>
 </body>
 </html>

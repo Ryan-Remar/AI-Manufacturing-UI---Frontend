@@ -47,6 +47,31 @@ h1 {
   font-size: 14px;
 }
 
+.report-load {
+  display: inline-block;
+  padding: 9px 12px;
+  border: 1px solid #718aa6;
+  border-radius: 4px;
+  background: #ffffff;
+  color: #172233;
+  font: inherit;
+  font-size: 13px;
+  cursor: pointer;
+}
+
+#refresh-report {
+  margin-right: 8px;
+}
+
+#refresh-report:disabled {
+  cursor: wait;
+}
+
+#report-file:focus-visible + .report-load {
+  outline: 2px solid #172233;
+  outline-offset: 3px;
+}
+
 h2 {
   font-size: 19px;
   margin: 0 0 22px;
