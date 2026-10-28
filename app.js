@@ -1,29 +1,30 @@
 /*
-  AI Manufacturing UI - frontend/output
+  AI Manufacturing UI — frontend/output.
 
-  No data is loaded, fabricated, or requested on startup.
+  No sample measurements are loaded on startup.
 
-  Later, the backend connection will supply a JSON object to:
+  Display a validated JSON object:
+    ManufacturingDashboard.update(data);
 
-  ManufacturingDashboard.update(data);
+  Save the current report:
+    ManufacturingDashboard.saveCurrent("YYYY-MM", "Report name");
 
-  Missing values stay unavailable rather than being shown as zero.
+  Clear the display without deleting saved reports:
+    ManufacturingDashboard.clear();
 */
 
 (() => {
   "use strict";
 
-  // Initial state: no measurements have been supplied.
-  const empty = () => ({
-    production: null,
-    defects: null,
-    runtimeSeconds: null,
-    averageTimeSeconds: null,
-    qualityScore: null,
-    october: null
-  });
+  const $ = id => document.getElementById(id);
 
-  let current = empty();
+  const put = (id, value) => {
+    $(id).textContent = value;
+  };
+
+  const keys = ["fray", "chip", "spot", "slash"];
+
+  const storageKey = "manufacturing-dashboard-reports-v1";
 
   const missing = "—";
 
@@ -35,29 +36,48 @@
   const pct = value =>
     value === null ? missing : value.toFixed(1) + "%";
 
-  const seconds = value =>
-    value === null ? missing : value.toFixed(2) + " s";
+  const empty = () => ({
+    production: null,
+    defects: null,
+    qualityScore: null,
+    errorRatePct: null,
+    summary: null
+  });
 
-  const put = (id, value) => {
-    document.getElementById(id).textContent = value;
-  };
+  let current = empty();
+  let records = [];
+  let active = null;
+  let archiveReadable = true;
 
   /*
-    Validate an optional numeric field.
+    VALIDATION
 
-    null or undefined: unavailable
-    0: a real supplied measurement
-
-    Counts must be safe integers.
-    Percentages must be between 0 and 100.
+    Missing values stay unavailable.
+    Zero is treated as a real measurement.
   */
+
+  function object(value, name) {
+    if (value == null) {
+      return null;
+    }
+
+    if (
+      typeof value !== "object" ||
+      Array.isArray(value)
+    ) {
+      throw new TypeError(name + " must be an object.");
+    }
+
+    return value;
+  }
+
   function optional(
     value,
     name,
     max = Infinity,
     integer = false
   ) {
-    if (value === null || value === undefined) {
+    if (value == null) {
       return null;
     }
 
@@ -73,48 +93,33 @@
         name +
         " must be a nonnegative " +
         (integer ? "safe integer" : "finite number") +
-        (max === Infinity ? "" : " no greater than " + max)
+        (
+          max === Infinity
+            ? "."
+            : " no greater than " + max + "."
+        )
       );
     }
 
     return value;
   }
 
-  function object(value, name) {
-    if (value === null || value === undefined) {
-      return null;
-    }
-
-    if (
-      typeof value !== "object" ||
-      Array.isArray(value)
-    ) {
-      throw new TypeError(name + " must be an object");
-    }
-
-    return value;
-  }
-
-  /*
-    Production data contains mutually exclusive counts:
-    good parts and defective parts.
-  */
   function production(value, name) {
-    value = object(value, name);
+    const p = object(value, name);
 
-    if (!value) {
+    if (!p) {
       return null;
     }
 
     const good = optional(
-      value.good,
+      p.good,
       name + ".good",
       Infinity,
       true
     );
 
     const defective = optional(
-      value.defective,
+      p.defective,
       name + ".defective",
       Infinity,
       true
@@ -125,7 +130,9 @@
       defective !== null &&
       !Number.isSafeInteger(good + defective)
     ) {
-      throw new RangeError("Total exceeds safe integer range");
+      throw new RangeError(
+        "Total exceeds safe integer range."
+      );
     }
 
     return {
@@ -135,18 +142,16 @@
   }
 
   /*
-    Total = good + defective
+    Good and defective parts are mutually exclusive.
 
-    Defect rate = defective / total × 100
-    Yield = good / total × 100
-
-    When total is zero, percentages remain unavailable.
+    A defective part can have several defect categories,
+    but it is counted only once in the defective total.
   */
+
   function totals(p) {
     const total =
-      p &&
-      p.good !== null &&
-      p.defective !== null
+      p?.good != null &&
+      p?.defective != null
         ? p.good + p.defective
         : null;
 
@@ -157,31 +162,31 @@
 
       defectRate:
         total > 0
-          ? 100 * p.defective / total
+          ? p.defective / total * 100
           : null,
 
       yield:
         total > 0
-          ? 100 * p.good / total
+          ? p.good / total * 100
           : null
     };
   }
 
-  /*
-    Validate and normalize an entire incoming snapshot.
-
-    Omitted fields become unavailable.
-    Invalid input is rejected before the display changes.
-  */
   function normalize(data) {
     if (!object(data, "data")) {
-      throw new TypeError("data must be an object");
+      throw new TypeError("data must be an object.");
     }
 
+    // Timing fields from older reports are ignored.
     const d = object(data.defects, "defects");
-    const m = object(data.october, "october");
 
-    return {
+    // Accept the original October summary format as well.
+    const summary = object(
+      data.summary ?? data.october,
+      "summary"
+    );
+
+    const result = {
       production: production(
         data.production,
         "production"
@@ -189,7 +194,7 @@
 
       defects: d
         ? Object.fromEntries(
-            ["fray", "chip", "spot", "slash"].map(key => [
+            keys.map(key => [
               key,
               optional(
                 d[key],
@@ -201,237 +206,866 @@
           )
         : null,
 
-      runtimeSeconds: optional(
-        data.runtimeSeconds,
-        "runtimeSeconds"
-      ),
-
-      averageTimeSeconds: optional(
-        data.averageTimeSeconds,
-        "averageTimeSeconds"
-      ),
-
       qualityScore: optional(
         data.qualityScore,
         "qualityScore",
         100
       ),
 
-      october: m
+      errorRatePct: optional(
+        data.errorRatePct,
+        "errorRatePct",
+        100
+      ),
+
+      summary: summary
         ? {
             production: production(
-              m.production,
-              "october.production"
+              summary.production,
+              "summary.production"
             ),
 
             errorRatePct: optional(
-              m.errorRatePct,
-              "october.errorRatePct",
+              summary.errorRatePct,
+              "summary.errorRatePct",
               100
             ),
 
-            averageTimeSeconds: optional(
-              m.averageTimeSeconds,
-              "october.averageTimeSeconds"
-            ),
-
             qualityScore: optional(
-              m.qualityScore,
-              "october.qualityScore",
+              summary.qualityScore,
+              "summary.qualityScore",
               100
             )
           }
         : null
     };
-  }
 
-  // Display elapsed runtime as hours, minutes, and seconds.
-  function duration(value) {
-    if (value === null) {
-      return missing;
+    /*
+      Category counts may overlap.
+
+      Their sum can exceed the defective-parts total.
+
+      However, one category cannot contain more unique
+      defective parts than the defective-parts total.
+    */
+
+    const p = totals(result.production);
+
+    if (
+      p.bad !== null &&
+      result.defects &&
+      Object.values(result.defects).some(
+        value => value !== null && value > p.bad
+      )
+    ) {
+      throw new RangeError(
+        "A defect category count cannot exceed " +
+        "the number of defective parts."
+      );
     }
 
-    const n = Math.floor(value);
+    return result;
+  }
 
-    const h = Math.floor(n / 3600);
-    const m = Math.floor(n % 3600 / 60);
-    const s = n % 60;
-
-    return (
-      h + "h " +
-      String(m).padStart(2, "0") + "m " +
-      String(s).padStart(2, "0") + "s"
+  function hasData(value) {
+    return Object.values(value).some(
+      item =>
+        item !== null &&
+        (
+          typeof item !== "object" ||
+          hasData(item)
+        )
     );
   }
 
   /*
-    QUALITY GAUGE
-
-    Five equal bands:
-    Red:    0-20%
-    Orange: 20-40%
-    Yellow: 40-60%
-    Lime:   60-80%
-    Green:  80-100%
-
-    The gauge runs from 0% at the left to 100% at the right.
+    MONTH FORMATTING
   */
-  const svgNS = "http://www.w3.org/2000/svg";
 
-  function point(radius, degrees) {
-    const angle = degrees * Math.PI / 180;
+  function month(value) {
+    const valid =
+      typeof value === "string" &&
+      /^(?!0000)\d{4}-(0[1-9]|1[0-2])$/.test(value);
 
-    return [
-      160 + radius * Math.cos(angle),
-      150 - radius * Math.sin(angle)
-    ];
+    if (!valid) {
+      throw new TypeError(
+        "Select a valid report month."
+      );
+    }
+
+    return value;
   }
 
-  const colors = [
-    "#df4848",
-    "#f18c34",
-    "#f1ca3e",
-    "#a3d545",
-    "#36a568"
-  ];
+  function monthLabel(value) {
+    if (!value) {
+      return missing;
+    }
 
-  colors.forEach((color, index) => {
-    const start = 180 - index * 36;
-    const end = start - 36;
+    const [year, monthNumber] =
+      value.split("-").map(Number);
 
-    const a = point(135, start);
-    const b = point(135, end);
-    const c = point(105, end);
-    const d = point(105, start);
+    const date = new Date(0);
 
-    const path = document.createElementNS(svgNS, "path");
-
-    path.setAttribute(
-      "d",
-      `M ${a}
-       A 135 135 0 0 1 ${b}
-       L ${c}
-       A 105 105 0 0 0 ${d}
-       Z`
+    date.setUTCFullYear(
+      year,
+      monthNumber - 1,
+      1
     );
 
-    path.setAttribute("fill", color);
+    return new Intl.DateTimeFormat(
+      "en-US",
+      {
+        month: "long",
+        year: "numeric",
+        timeZone: "UTC"
+      }
+    ).format(date);
+  }
 
-    document.getElementById("gauge-bands").append(path);
-  });
+  function error(message = "") {
+    put("error-message", message);
+    $("error-message").hidden = !message;
+  }
 
-  // Update every required display.
-  function render(data) {
-    const p = totals(data.production);
+  /*
+    UPDATE THE DASHBOARD
+  */
 
-    // Production totals
+  function render() {
+    const p = totals(current.production);
+
     put("total", count(p.total));
     put("good", count(p.good));
     put("bad", count(p.bad));
     put("defect-rate", pct(p.defectRate));
 
-    // Defect category counts
-    ["fray", "chip", "spot", "slash"].forEach(key => {
-      put(key, count(data.defects?.[key] ?? null));
+    /*
+      Rank known defect counts from largest to smallest.
+
+      Missing counts appear last.
+      Ties retain their original category order.
+    */
+
+    const ranked = keys.map((key, index) => ({
+      key,
+      index,
+      value: current.defects?.[key] ?? null
+    }));
+
+    ranked.sort(
+      (a, b) =>
+        (a.value === null) - (b.value === null) ||
+        (b.value ?? 0) - (a.value ?? 0) ||
+        a.index - b.index
+    );
+
+    let previous = null;
+    let rank = 0;
+
+    ranked.forEach((entry, index) => {
+      const row = document.querySelector(
+        '[data-defect="' + entry.key + '"]'
+      );
+
+      if (
+        entry.value !== null &&
+        entry.value !== previous
+      ) {
+        rank = index + 1;
+      }
+
+      row.querySelector(".rank").textContent =
+        entry.value === null
+          ? missing
+          : "#" + rank;
+
+      put(entry.key, count(entry.value));
+
+      $("defect-list").append(row);
+
+      previous = entry.value;
     });
 
-    // Runtime and average time per part
-    put("runtime", duration(data.runtimeSeconds));
-    put("avg-time", seconds(data.averageTimeSeconds));
+    /*
+      QUALITY FUEL BAR
 
-    // Quality score
-    put("quality", pct(data.qualityScore));
+      F: 0 to below 20
+      D: 20 to below 40
+      C: 40 to below 60
+      B: 60 to below 80
+      A: 80 through 100
+    */
 
-    const needle = document.getElementById("needle");
+    const score = current.qualityScore;
 
-    needle.setAttribute(
-      "visibility",
-      data.qualityScore === null ? "hidden" : "visible"
-    );
+    put("quality", pct(score));
 
-    needle.setAttribute(
-      "transform",
-      `rotate(${(data.qualityScore ?? 0) * 1.8} 160 150)`
-    );
+    const grades = [
+      ["F", "Bad"],
+      ["D", "Decent"],
+      ["C", "Good"],
+      ["B", "Great"],
+      ["A", "Excellent"]
+    ];
 
-    document.getElementById("gauge").setAttribute(
-      "aria-label",
-      "Quality score: " +
-      (
-        data.qualityScore === null
-          ? "waiting for data"
-          : pct(data.qualityScore)
-      )
-    );
-
-    // October summary
-    const m = data.october;
-    const mt = totals(m?.production ?? null);
-
-    put("month-total", count(mt.total));
-    put("month-good", count(mt.good));
-    put("month-bad", count(mt.bad));
-    put("month-yield", pct(mt.yield));
-    put("month-defect", pct(mt.defectRate));
-
-    put("month-error", pct(m?.errorRatePct ?? null));
+    const grade =
+      score === null
+        ? null
+        : grades[
+            Math.min(
+              4,
+              Math.floor(score / 20)
+            )
+          ];
 
     put(
-      "month-time",
-      seconds(m?.averageTimeSeconds ?? null)
+      "quality-status",
+      grade
+        ? grade[0] + " · " + grade[1]
+        : "Waiting for a quality score"
+    );
+
+    $("fuel-cover").style.width =
+      (100 - (score ?? 0)) + "%";
+
+    $("fuel-marker").style.left =
+      (score ?? 0) + "%";
+
+    $("fuel-marker").hidden =
+      score === null;
+
+    $("quality-meter").classList.toggle(
+      "unavailable",
+      score === null
+    );
+
+    if (score === null) {
+      $("quality-meter").removeAttribute(
+        "aria-valuenow"
+      );
+    } else {
+      $("quality-meter").setAttribute(
+        "aria-valuenow",
+        score
+      );
+    }
+
+    $("quality-meter").setAttribute(
+      "aria-valuetext",
+      grade
+        ? pct(score) + ", " + grade.join(", ")
+        : "Unavailable"
+    );
+
+    /*
+      SELECTED REPORT SUMMARY
+
+      If no separate summary is supplied, display
+      the selected report's top-level values.
+    */
+
+    const summary = current.summary;
+
+    const summaryTotals = totals(
+      summary
+        ? summary.production
+        : current.production
+    );
+
+    put("month-total", count(summaryTotals.total));
+    put("month-good", count(summaryTotals.good));
+    put("month-bad", count(summaryTotals.bad));
+
+    put(
+      "month-yield",
+      pct(summaryTotals.yield)
+    );
+
+    put(
+      "month-defect",
+      pct(summaryTotals.defectRate)
+    );
+
+    put(
+      "month-error",
+      pct(
+        summary
+          ? summary.errorRatePct
+          : current.errorRatePct
+      )
     );
 
     put(
       "month-quality",
-      pct(m?.qualityScore ?? null)
+      pct(
+        summary
+          ? summary.qualityScore
+          : current.qualityScore
+      )
     );
 
-    // Determine whether any actual values were supplied.
-    const values = [
-      p.good,
-      p.bad,
-      data.runtimeSeconds,
-      data.averageTimeSeconds,
-      data.qualityScore,
-      ...Object.values(data.defects ?? {}),
-      mt.good,
-      mt.bad,
-      m?.errorRatePct ?? null,
-      m?.averageTimeSeconds ?? null,
-      m?.qualityScore ?? null
-    ];
+    put(
+      "summary-month",
+      monthLabel(active?.month)
+    );
+
+    put(
+      "summary-label",
+      active
+        ? active.label + " · " + monthLabel(active.month)
+        : "Current unsaved report. " +
+          "Upload or save it to assign a month."
+    );
 
     put(
       "data-status",
-      values.some(value => value !== null)
-        ? "Displaying supplied data. Unavailable values are shown as —."
-        : "Waiting for data. No input has been connected."
+      hasData(current)
+        ? (
+            active
+              ? "Displaying saved report: " +
+                active.label +
+                "."
+              : "Displaying supplied data."
+          ) +
+          " Unavailable values are shown as —."
+        : "Waiting for data. " +
+          "No measurements are available."
     );
   }
 
   /*
-    PUBLIC FUNCTIONS FOR LATER INTEGRATION
-
-    update(data):
-      Replaces the displayed data with a validated snapshot.
-
-    clear():
-      Returns the dashboard to its empty initial state.
+    MONTH AND REPORT SELECTORS
   */
+
+  function refreshSelectors(
+    selectedMonth = active?.month,
+    selectedId = active?.id
+  ) {
+    const months = [
+      ...new Set(
+        records.map(record => record.month)
+      )
+    ].sort().reverse();
+
+    const monthSelect = $("month-select");
+
+    monthSelect.replaceChildren();
+
+    if (!months.length) {
+      monthSelect.add(
+        new Option("No saved months", "")
+      );
+    }
+
+    months.forEach(value => {
+      monthSelect.add(
+        new Option(monthLabel(value), value)
+      );
+    });
+
+    monthSelect.disabled = !months.length;
+
+    monthSelect.value =
+      months.includes(selectedMonth)
+        ? selectedMonth
+        : (months[0] ?? "");
+
+    const reports = records
+      .filter(
+        record => record.month === monthSelect.value
+      )
+      .slice()
+      .reverse();
+
+    const reportSelect = $("report-select");
+
+    reportSelect.replaceChildren();
+
+    if (!reports.length) {
+      reportSelect.add(
+        new Option("No saved reports", "")
+      );
+    }
+
+    reports.forEach(record => {
+      reportSelect.add(
+        new Option(
+          record.label +
+          " · " +
+          new Date(record.savedAt).toLocaleString(),
+          record.id
+        )
+      );
+    });
+
+    reportSelect.disabled = !reports.length;
+
+    reportSelect.value =
+      reports.some(record => record.id === selectedId)
+        ? selectedId
+        : (reports[0]?.id ?? "");
+
+    $("export-history").disabled =
+      !records.length;
+  }
+
+  function selectReport() {
+    const record = records.find(
+      item => item.id === $("report-select").value
+    );
+
+    if (!record) {
+      return;
+    }
+
+    current = record.data;
+    active = record;
+
+    error();
+    render();
+  }
+
+  /*
+    SAVE A VALIDATED REPORT TO THIS BROWSER
+
+    Storage is written before the display changes,
+    so failed saves leave the current report unchanged.
+  */
+
+  function saveSnapshot(data, reportMonth, label) {
+    if (!archiveReadable) {
+      throw new Error(
+        "Saved history could not be read. " +
+        "Existing browser storage has been left unchanged. " +
+        "Restore access before saving new reports."
+      );
+    }
+
+    const normalized = normalize(data);
+
+    if (!hasData(normalized)) {
+      throw new Error(
+        "This report has no supported measurements. " +
+        "Use the JSON format in README.md."
+      );
+    }
+
+    const record = {
+      id: crypto.randomUUID(),
+
+      month: month(reportMonth),
+
+      label:
+        typeof label === "string" && label.trim()
+          ? label.trim().slice(0, 200)
+          : "Inspection report",
+
+      savedAt: new Date().toISOString(),
+
+      data: normalized
+    };
+
+    const next = [...records, record];
+
+    try {
+      localStorage.setItem(
+        storageKey,
+        JSON.stringify({
+          version: 1,
+          records: next
+        })
+      );
+    } catch {
+      throw new Error(
+        "The report could not be saved. " +
+        "Browser storage may be full or disabled. " +
+        "Existing reports and the display were left unchanged."
+      );
+    }
+
+    records = next;
+    current = normalized;
+    active = record;
+
+    refreshSelectors();
+    render();
+    error();
+
+    put(
+      "storage-status",
+      "Report saved in this browser. " +
+      "Download saved reports to keep a backup."
+    );
+
+    return record.id;
+  }
+
+  /*
+    RESTORE EXISTING BROWSER HISTORY ON STARTUP
+  */
+
+  function loadArchive() {
+    try {
+      const text = localStorage.getItem(storageKey);
+
+      if (!text) {
+        return;
+      }
+
+      const archive = JSON.parse(text);
+
+      if (
+        archive.version !== 1 ||
+        !Array.isArray(archive.records)
+      ) {
+        throw new Error();
+      }
+
+      const ids = new Set();
+
+      const validated = archive.records.map(record => {
+        if (
+          !object(record, "report") ||
+          typeof record.id !== "string" ||
+          !record.id ||
+          ids.has(record.id) ||
+          typeof record.label !== "string" ||
+          typeof record.savedAt !== "string" ||
+          !Number.isFinite(Date.parse(record.savedAt))
+        ) {
+          throw new Error();
+        }
+
+        ids.add(record.id);
+
+        return {
+          id: record.id,
+          month: month(record.month),
+          label: record.label,
+          savedAt: record.savedAt,
+          data: normalize(record.data)
+        };
+      });
+
+      records = validated;
+    } catch {
+      archiveReadable = false;
+
+      error(
+        "Saved history could not be read. " +
+        "Existing storage has been left unchanged. " +
+        "You can still display data using the backend " +
+        "update function."
+      );
+    }
+  }
+
+  /*
+    UPLOAD A JSON REPORT
+  */
+
+  $("report-file").addEventListener(
+    "change",
+    async event => {
+      const file = event.target.files[0];
+
+      if (!file) {
+        return;
+      }
+
+      const reportMonth = $("upload-month").value;
+
+      event.target.disabled = true;
+
+      try {
+        month(reportMonth);
+
+        if (file.size > 5 * 1024 * 1024) {
+          throw new Error(
+            "Choose a JSON summary report smaller than 5 MB."
+          );
+        }
+
+        const data = JSON.parse(
+          await file.text()
+        );
+
+        if (
+          data?.version === 1 &&
+          Array.isArray(data.records)
+        ) {
+          throw new Error(
+            "This is a history backup. " +
+            "Choose it under Restore saved reports instead."
+          );
+        }
+
+        saveSnapshot(
+          data,
+          reportMonth,
+          file.name
+        );
+      } catch (e) {
+        error("Upload failed: " + e.message);
+      } finally {
+        event.target.value = "";
+        event.target.disabled = false;
+      }
+    }
+  );
+
+  $("month-select").addEventListener(
+    "change",
+    () => {
+      refreshSelectors(
+        $("month-select").value
+      );
+
+      selectReport();
+    }
+  );
+
+  $("report-select").addEventListener(
+    "change",
+    selectReport
+  );
+
+  /*
+    DOWNLOAD A BACKUP OF SAVED REPORTS
+  */
+
+  $("export-history").addEventListener(
+    "click",
+    () => {
+      const backup = JSON.stringify(
+        {
+          version: 1,
+          records
+        },
+        null,
+        2
+      );
+
+      const blob = new Blob(
+        [backup],
+        {
+          type: "application/json"
+        }
+      );
+
+      const url = URL.createObjectURL(blob);
+
+      const link = document.createElement("a");
+
+      link.href = url;
+      link.download = "manufacturing-saved-reports.json";
+
+      document.body.append(link);
+
+      link.click();
+      link.remove();
+
+      setTimeout(
+        () => URL.revokeObjectURL(url),
+        1000
+      );
+    }
+  );
+
+  /*
+    PUBLIC FUNCTIONS FOR FUTURE BACKEND INTEGRATION
+  */
+
   window.ManufacturingDashboard = Object.freeze({
     update(data) {
       const next = normalize(data);
 
       current = next;
-      render(current);
+      active = null;
+
+      render();
+      error();
     },
 
     clear() {
       current = empty();
-      render(current);
+      active = null;
+
+      render();
+      error();
+    },
+
+    saveCurrent(reportMonth, label) {
+      return saveSnapshot(
+        current,
+        reportMonth,
+        label
+      );
+    },
+
+    /*
+      Merge a history backup with saved reports.
+
+      Identical report IDs are not duplicated.
+      Conflicting IDs or invalid entries are rejected
+      before storage changes.
+    */
+
+    restoreHistory(backup) {
+      if (!archiveReadable) {
+        throw new Error(
+          "Existing history is unreadable; " +
+          "restore access before importing."
+        );
+      }
+
+      if (
+        !object(backup, "backup") ||
+        backup.version !== 1 ||
+        !Array.isArray(backup.records)
+      ) {
+        throw new TypeError(
+          "Invalid history backup."
+        );
+      }
+
+      const seen = new Set();
+
+      const imported = backup.records.map(record => {
+        if (
+          !object(record, "report") ||
+          typeof record.id !== "string" ||
+          !record.id ||
+          seen.has(record.id) ||
+          typeof record.label !== "string" ||
+          typeof record.savedAt !== "string" ||
+          !Number.isFinite(Date.parse(record.savedAt))
+        ) {
+          throw new TypeError(
+            "Invalid saved report."
+          );
+        }
+
+        seen.add(record.id);
+
+        return {
+          id: record.id,
+          month: month(record.month),
+          label: record.label,
+          savedAt: record.savedAt,
+          data: normalize(record.data)
+        };
+      });
+
+      for (const item of imported) {
+        const existing = records.find(
+          record => record.id === item.id
+        );
+
+        if (
+          existing &&
+          JSON.stringify(existing) !== JSON.stringify(item)
+        ) {
+          throw new Error(
+            "A backup report conflicts with " +
+            "an existing saved report."
+          );
+        }
+      }
+
+      const existingIds = new Set(
+        records.map(record => record.id)
+      );
+
+      const next = [
+        ...records,
+
+        ...imported.filter(
+          record => !existingIds.has(record.id)
+        )
+      ];
+
+      localStorage.setItem(
+        storageKey,
+        JSON.stringify({
+          version: 1,
+          records: next
+        })
+      );
+
+      records = next;
+
+      refreshSelectors();
+      selectReport();
+      error();
+
+      put(
+        "storage-status",
+        "History backup restored in this browser."
+      );
     }
   });
 
-  // Display the initial empty dashboard.
-  render(current);
+  /*
+    RESTORE A DOWNLOADED HISTORY BACKUP
+  */
+
+  $("history-file").addEventListener(
+    "change",
+    async event => {
+      const file = event.target.files[0];
+
+      if (!file) {
+        return;
+      }
+
+      event.target.disabled = true;
+
+      try {
+        if (file.size > 20 * 1024 * 1024) {
+          throw new Error(
+            "Choose a backup smaller than 20 MB."
+          );
+        }
+
+        const backup = JSON.parse(
+          await file.text()
+        );
+
+        window.ManufacturingDashboard.restoreHistory(
+          backup
+        );
+      } catch (e) {
+        error("Restore failed: " + e.message);
+      } finally {
+        event.target.value = "";
+        event.target.disabled = false;
+      }
+    }
+  );
+
+  /*
+    STARTUP
+
+    Default the upload month to the current month.
+
+    Load only previously saved reports.
+    No fabricated or sample measurements are inserted.
+  */
+
+  const now = new Date();
+
+  $("upload-month").value =
+    now.getFullYear() +
+    "-" +
+    String(now.getMonth() + 1).padStart(2, "0");
+
+  loadArchive();
+  refreshSelectors();
+
+  if (records.length) {
+    selectReport();
+  } else {
+    render();
+  }
 })();
