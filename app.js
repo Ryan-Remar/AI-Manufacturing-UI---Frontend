@@ -9,6 +9,7 @@
   const put = (id, value) => { $(id).textContent = value; };
   const keys = ["fray", "chip", "spot", "slash"];
   const storageKey = "manufacturing-dashboard-reports-v1";
+  const themeStorageKey = "manufacturing-dashboard-theme-v1";
   const missing = "—";
   const countFormat = new Intl.NumberFormat("en-US");
   const count = value => value === null ? missing : countFormat.format(value);
@@ -117,6 +118,16 @@
     put("error-message", message);
     $("error-message").hidden = !message;
   }
+  function settingsStatus(message = "") {
+    put("settings-status", message);
+    $("settings-status").hidden = !message;
+  }
+  function applyTheme(theme) {
+    const dark = theme === "dark";
+    document.documentElement.dataset.theme = dark ? "dark" : "light";
+    $("theme-toggle").textContent = dark ? "Switch to light mode" : "Switch to dark mode";
+    $("theme-toggle").setAttribute("aria-pressed", String(dark));
+  }
 
   function render() {
     const p = totals(current.production);
@@ -179,6 +190,10 @@
   function selectReport() {
     const record = records.find(r => r.id === $("report-select").value);
     if (!record) return;
+    if (connectedBackendUrl) {
+      stopBackendRefresh();
+      put("backend-status", "Saved report selected. Click Refresh from backend to reconnect.");
+    }
     current = record.data;
     active = record;
     error(); render();
@@ -235,6 +250,33 @@
   });
   $("month-select").addEventListener("change", () => { refreshSelectors($("month-select").value); selectReport(); });
   $("report-select").addEventListener("change", selectReport);
+  $("theme-toggle").addEventListener("click", () => {
+    const theme = document.documentElement.dataset.theme === "dark" ? "light" : "dark";
+    applyTheme(theme);
+    try {
+      localStorage.setItem(themeStorageKey, theme);
+      settingsStatus(theme === "dark" ? "Dark mode enabled." : "Light mode enabled.");
+    } catch (e) {
+      settingsStatus("Theme changed for this session, but could not be saved: " + e.message);
+    }
+  });
+  $("clear-cache").addEventListener("click", () => {
+    const confirmed = window.confirm("Clear all saved reports from this browser? This cannot be undone. Save the displayed report and download saved reports first if you want a backup. The currently displayed report will remain on screen but will no longer be saved locally. Cancel to keep your saved reports.");
+    if (!confirmed) return;
+    try { localStorage.removeItem(storageKey); }
+    catch (e) {
+      settingsStatus("Could not clear saved reports: " + e.message);
+      return;
+    }
+    records = [];
+    active = null;
+    archiveReadable = true;
+    refreshSelectors();
+    render();
+    put("storage-status", "Saved reports were cleared from this browser.");
+    settingsStatus("Saved report data cleared.");
+    $("settings-menu").open = false;
+  });
   $("export-history").addEventListener("click", () => {
     const url = URL.createObjectURL(new Blob([JSON.stringify({version: 1, records}, null, 2)], {type: "application/json"}));
     const a = document.createElement("a");
@@ -245,7 +287,11 @@
   window.ManufacturingDashboard = Object.freeze({
     loadFromUrl,
     update(data) { const next = normalize(data); current = next; active = null; render(); error(); },
-    clear() { current = empty(); active = null; render(); error(); },
+    clear() {
+      stopBackendRefresh();
+      put("backend-status", "Backend auto-refresh stopped.");
+      current = empty(); active = null; render(); error();
+    },
     saveCurrent(reportMonth, label) { return saveSnapshot(current, reportMonth, label); },
     // Merge backups without overwriting existing reports. Validate everything before writing.
     restoreHistory(backup) {
@@ -280,25 +326,98 @@
   });
   // Backend URL is configured by the team; no endpoint or sample data is assumed.
   let backendBusy = false;
-  async function loadFromUrl(url) {
+  const backendRefreshInterval = 30000;
+  let backendRefreshTimer = null;
+  let connectedBackendUrl = null;
+  let backendSnapshot = null;
+  function cancelBackendRefresh() {
+    clearTimeout(backendRefreshTimer);
+    backendRefreshTimer = null;
+  }
+  function stopBackendRefresh() {
+    cancelBackendRefresh();
+    connectedBackendUrl = null;
+    backendSnapshot = null;
+  }
+  function scheduleBackendRefresh() {
+    cancelBackendRefresh();
+    if (!connectedBackendUrl || !$("auto-refresh").checked) return;
+    backendRefreshTimer = setTimeout(async () => {
+      backendRefreshTimer = null;
+      try { await loadFromUrl(connectedBackendUrl, true); }
+      catch (e) {
+        put("backend-status", "Automatic refresh failed: " + e.message + " Retrying in 30 seconds.");
+      } finally { scheduleBackendRefresh(); }
+    }, backendRefreshInterval);
+  }
+  async function loadFromUrl(url, automatic = false) {
     if (backendBusy) throw new Error("A backend request is already running.");
     if (typeof url !== "string" || !url.trim()) throw new TypeError("Enter the backend JSON URL first.");
     const target = new URL(url.trim(), window.location.href);
     if (!["http:", "https:"].includes(target.protocol)) throw new TypeError("Use an HTTP or HTTPS backend URL.");
+    if (automatic && (!connectedBackendUrl || connectedBackendUrl !== target.href || !$("auto-refresh").checked)) return false;
+    if (!automatic) {
+      cancelBackendRefresh();
+      connectedBackendUrl = null;
+      backendSnapshot = null;
+      put("backend-status", "Connecting to backend…");
+    }
     backendBusy = true;
     $("refresh-report").disabled = true;
+    let loaded = false;
     try {
       const response = await fetch(target.href, {headers: {Accept: "application/json"}, cache: "no-store", signal: AbortSignal.timeout(20000)});
       if (!response.ok) throw new Error("Backend returned HTTP " + response.status + ".");
       const next = normalize(await response.json());
       if (!hasData(next)) throw new Error("Backend response has no supported measurements.");
-      current = next; active = null; render(); error();
+      if (automatic && (!connectedBackendUrl || connectedBackendUrl !== target.href || !$("auto-refresh").checked)) return false;
+      const changed = !backendSnapshot || JSON.stringify(next) !== JSON.stringify(backendSnapshot);
+      if (changed) {
+        current = next; active = null; render(); error();
+      }
+      backendSnapshot = next;
+      connectedBackendUrl = target.href;
+      loaded = true;
+      put("backend-status", automatic
+        ? (changed ? "New backend data received and displayed." : "No new backend data. Checking again in 30 seconds.")
+        : $("auto-refresh").checked
+          ? "Backend connected. Automatic refresh checks every 30 seconds."
+          : "Backend connected. Automatic refresh is paused.");
       put("storage-status", "Backend report displayed. Use Save displayed report to archive it under the selected upload month.");
-    } finally { backendBusy = false; $("refresh-report").disabled = false; }
+      return changed;
+    } catch (e) {
+      if (!automatic) put("backend-status", "Backend connection failed. Automatic refresh is not active.");
+      throw e;
+    } finally {
+      backendBusy = false;
+      $("refresh-report").disabled = false;
+      if (loaded && !automatic) scheduleBackendRefresh();
+    }
   }
   $("refresh-report").addEventListener("click", async () => {
     try { await loadFromUrl($("backend-url").value); }
     catch (e) { error("Backend load failed: " + e.message); }
+  });
+  $("auto-refresh").addEventListener("change", () => {
+    if ($("auto-refresh").checked) {
+      scheduleBackendRefresh();
+      put("backend-status", connectedBackendUrl
+        ? "Automatic refresh enabled. Checking every 30 seconds."
+        : "Click Refresh from backend to connect before automatic refresh can start.");
+    } else {
+      cancelBackendRefresh();
+      put("backend-status", "Automatic refresh is paused.");
+    }
+  });
+  $("backend-url").addEventListener("input", () => {
+    if (!connectedBackendUrl) return;
+    let editedUrl = "";
+    try { editedUrl = new URL($("backend-url").value.trim(), window.location.href).href; }
+    catch { /* Invalid edits still disconnect the previous URL. */ }
+    if (editedUrl !== connectedBackendUrl) {
+      stopBackendRefresh();
+      put("backend-status", "Backend URL changed. Click Refresh from backend to connect to the new URL.");
+    }
   });
   $("save-current").addEventListener("click", () => {
     try { saveSnapshot(current, $("upload-month").value, "Backend inspection report"); }
@@ -306,6 +425,10 @@
   });
   const now = new Date();
   $("upload-month").value = now.getFullYear() + "-" + String(now.getMonth() + 1).padStart(2, "0");
+  let savedTheme = "light";
+  try { savedTheme = localStorage.getItem(themeStorageKey) === "dark" ? "dark" : "light"; }
+  catch (e) { settingsStatus("Could not read the saved theme preference: " + e.message); }
+  applyTheme(savedTheme);
   loadArchive(); refreshSelectors();
   if (records.length) selectReport(); else render();
 })();
