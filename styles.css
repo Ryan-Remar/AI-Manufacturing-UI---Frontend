@@ -469,6 +469,19 @@ td {
   font-variant-numeric: tabular-nums;
 }
 
+tfoot th,
+tfoot td {
+  border-bottom: 0;
+  border-top: 2px solid var(--border);
+  background: var(--table-header);
+  font-weight: 700;
+}
+
+.selected-summary-row th {
+  color: var(--text);
+  font-weight: 700;
+}
+
 /* Accessible text */
 
 .sr-only {

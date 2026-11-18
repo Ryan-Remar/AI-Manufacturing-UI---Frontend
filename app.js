@@ -102,6 +102,114 @@
   function hasData(value) {
     return Object.values(value).some(v => v !== null && (typeof v === "number" || (typeof v === "object" && hasData(v))));
   }
+  function sumValues(values) {
+    const available = values.filter(value => value !== null && value !== undefined);
+    return available.length ? available.reduce((sum, value) => sum + value, 0) : null;
+  }
+  function weightedAverage(values, weights) {
+    const pairs = values.map((value, index) => ({value, weight: weights[index]}))
+      .filter(pair => pair.value !== null && pair.value !== undefined);
+    if (!pairs.length) return null;
+    const hasWeights = pairs.some(pair => pair.weight !== null && pair.weight > 0);
+    if (!hasWeights) return pairs.reduce((sum, pair) => sum + pair.value, 0) / pairs.length;
+    const weighted = pairs.reduce((sum, pair) => sum + pair.value * (pair.weight > 0 ? pair.weight : 1), 0);
+    const weightTotal = pairs.reduce((sum, pair) => sum + (pair.weight > 0 ? pair.weight : 1), 0);
+    return weighted / weightTotal;
+  }
+  function aggregateReportData(reportData) {
+    const productionValues = reportData.map(record => totals(record.production));
+    const total = sumValues(productionValues.map(value => value.total));
+    const good = sumValues(productionValues.map(value => value.good));
+    const bad = sumValues(productionValues.map(value => value.bad));
+    const weights = productionValues.map(value => value.total);
+    return {
+      production: {total, good, bad},
+      yield: total > 0 && good !== null ? good / total * 100 : null,
+      defectRate: total > 0 && bad !== null ? bad / total * 100 : null,
+      errorRatePct: weightedAverage(reportData.map(record => record.errorRatePct), weights),
+      qualityScore: weightedAverage(reportData.map(record => record.qualityScore), weights)
+    };
+  }
+  function summaryCell(value, percentage = false) {
+    const cell = document.createElement("td");
+    cell.textContent = percentage ? pct(value) : count(value);
+    return cell;
+  }
+  function appendSummaryRow(tbody, label, summary, selected = false) {
+    const row = document.createElement("tr");
+    if (selected) row.classList.add("selected-summary-row");
+    const heading = document.createElement("th");
+    heading.scope = "row";
+    heading.textContent = label;
+    row.append(heading,
+      summaryCell(summary.errorRatePct, true),
+      summaryCell(summary.production.total),
+      summaryCell(summary.production.good),
+      summaryCell(summary.production.bad),
+      summaryCell(summary.yield, true),
+      summaryCell(summary.defectRate, true),
+      summaryCell(summary.qualityScore, true));
+    tbody.append(row);
+  }
+  function renderMonthlySummary() {
+    const tbody = $("summary-months");
+    tbody.replaceChildren();
+    const foot = $("summary-all-months");
+    foot.replaceChildren();
+
+    if (!records.length) {
+      const label = monthLabel($("upload-month").value);
+      const summary = aggregateReportData([current]);
+      appendSummaryRow(tbody, label, {
+        ...summary,
+        production: {
+          total: totals(current.production).total,
+          good: totals(current.production).good,
+          bad: totals(current.production).bad
+        },
+        yield: totals(current.production).yield,
+        defectRate: totals(current.production).defectRate
+      });
+      const allRow = document.createElement("tr");
+      const allHeading = document.createElement("th");
+      allHeading.scope = "row";
+      allHeading.textContent = "All months";
+      allRow.append(allHeading,
+        summaryCell(current.errorRatePct, true),
+        summaryCell(totals(current.production).total),
+        summaryCell(totals(current.production).good),
+        summaryCell(totals(current.production).bad),
+        summaryCell(totals(current.production).yield, true),
+        summaryCell(totals(current.production).defectRate, true),
+        summaryCell(current.qualityScore, true));
+      foot.append(allRow);
+      return;
+    }
+
+    const monthGroups = new Map();
+    records.forEach(record => {
+      if (!monthGroups.has(record.month)) monthGroups.set(record.month, []);
+      monthGroups.get(record.month).push(record.data);
+    });
+    [...monthGroups.entries()].sort(([a], [b]) => b.localeCompare(a)).forEach(([month, monthData]) => {
+      appendSummaryRow(tbody, monthLabel(month) + (active?.month === month ? " · Selected" : ""), aggregateReportData(monthData), active?.month === month);
+    });
+
+    const allSummary = aggregateReportData(records.map(record => record.data));
+    const allRow = document.createElement("tr");
+    const allHeading = document.createElement("th");
+    allHeading.scope = "row";
+    allHeading.textContent = "All months";
+    allRow.append(allHeading,
+      summaryCell(allSummary.errorRatePct, true),
+      summaryCell(allSummary.production.total),
+      summaryCell(allSummary.production.good),
+      summaryCell(allSummary.production.bad),
+      summaryCell(allSummary.yield, true),
+      summaryCell(allSummary.defectRate, true),
+      summaryCell(allSummary.qualityScore, true));
+    foot.append(allRow);
+  }
   function month(value) {
     if (typeof value !== "string" || !/^(?!0000)\d{4}-(0[1-9]|1[0-2])$/.test(value)) throw new TypeError("Select a valid report month.");
     return value;
@@ -159,14 +267,8 @@
     if (score === null) $("quality-meter").removeAttribute("aria-valuenow");
     else $("quality-meter").setAttribute("aria-valuenow", score);
     $("quality-meter").setAttribute("aria-valuetext", grade ? pct(score) + ", " + grade.join(", ") : "Unavailable");
-    const s = current.summary;
-    const st = totals(s ? s.production : current.production);
-    put("month-total", count(st.total)); put("month-good", count(st.good)); put("month-bad", count(st.bad));
-    put("month-yield", pct(st.yield)); put("month-defect", pct(st.defectRate));
-    put("month-error", pct(s ? s.errorRatePct : current.errorRatePct));
-    put("month-quality", pct(s ? s.qualityScore : current.qualityScore));
-    put("summary-month", monthLabel(active?.month));
     put("summary-label", active ? active.label + " · " + monthLabel(active.month) : "Current unsaved report. Upload or save it to assign a month.");
+    renderMonthlySummary();
     put("data-status", hasData(current) ? (active ? "Displaying saved report: " + active.label + "." : "Displaying supplied data.") + " Unavailable values are shown as —." : "Waiting for data. No measurements are available.");
   }
 

@@ -4,8 +4,8 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>AI Manufacturing UI</title>
-  <link rel="stylesheet" href="styles.css">
-  <script src="app.js" defer></script>
+  <link rel="stylesheet" href="styles.css?v=2">
+  <script src="app.js?v=2" defer></script>
 </head>
 <body>
 <main>
@@ -93,12 +93,13 @@
   </div>
 
   <section aria-labelledby="summary-heading" class="panel">
-    <h2 id="summary-heading">Selected Report Summary</h2>
+    <h2 id="summary-heading">Report Summary by Month</h2>
     <p id="summary-label" class="note">No report selected.</p>
     <div class="table-wrap"><table>
-      <caption class="sr-only">Metrics for the selected report; reports are not combined into monthly totals.</caption>
+      <caption class="sr-only">Metrics grouped for every saved month, followed by an all-months total or average.</caption>
       <thead><tr><th scope="col">Month</th><th scope="col">Model Error Rate</th><th scope="col">Amount Produced</th><th scope="col">Total Good</th><th scope="col">Total Bad</th><th scope="col">Yield</th><th scope="col">Defect Rate</th><th scope="col">Quality Score</th></tr></thead>
-      <tbody><tr><th id="summary-month" scope="row">—</th><td id="month-error">—</td><td id="month-total">—</td><td id="month-good">—</td><td id="month-bad">—</td><td id="month-yield">—</td><td id="month-defect">—</td><td id="month-quality">—</td></tr></tbody>
+      <tbody id="summary-months"><tr><th scope="row">—</th><td>—</td><td>—</td><td>—</td><td>—</td><td>—</td><td>—</td><td>—</td></tr></tbody>
+      <tfoot id="summary-all-months"></tfoot>
     </table></div>
   </section>
 </main>
